@@ -121,11 +121,166 @@ func main() {
 }
 ```
 
-### Processing with Multiple Providers
+
+
+```
+
+# Adding New Payment Providers
+
+This guide explains how to add new payment providers to the Payment Gateway Adapter System (PGAS).
+
+## Overview
+
+The system is designed to be easily extensible. Adding a new provider involves implementing the `Provider` interface and following a consistent pattern.
+
+## Provider Interface
+
+All payment providers must implement the `Provider` interface defined in `pkg/providers/types.go`:
 
 ```go
-func processWithMultipleProviders(processor *processor.PaymentProcessor, amount float64) {
-    providers := []string{"provider_a", "provider_b"}
+type Provider interface {
+    GetName() string
+    ValidateRequest(request PaymentRequest) error
+    ProcessPayment(ctx context.Context, request PaymentRequest) (interface{}, interface{})
+    ParseSuccessResponse(response interface{}) (*PaymentResponse, error)
+    ParseErrorResponse(response interface{}) (*PaymentError, error)
+}
+```
+
+## Step-by-Step Guide
+
+### Step 1: Create Provider Directory
+
+Create a new directory for your provider under `pkg/providers/`:
+
+```bash
+mkdir pkg/providers/your_provider_name
+cd pkg/providers/your_provider_name
+```
+
+### Step 2: Create Provider Implementation
+
+Create a file named `provider.go` in your provider directory:
+
+```go
+package your_provider_name
+
+import (
+    "context"
+    "errors"
+    "fmt"
+    "strconv"
+    "time"
     
-    for _, providerName := range providers {
-        re
+    "pgas/pkg/providers"
+)
+
+// Provider-specific response structures
+type YourProviderResponse struct {
+    TransactionID string  `json:"transaction_id"`
+    Status        string  `json:"status"`
+    Amount        float64 `json:"amount"`
+    Currency      string  `json:"currency"`
+    Timestamp     string  `json:"timestamp"`
+}
+
+type YourProviderError struct {
+    ErrorCode    string `json:"error_code"`
+    ErrorMessage string `json:"error_message"`
+    Details      string `json:"details,omitempty"`
+}
+
+// NewYourProvider creates a new instance of YourProvider
+func NewYourProvider(apiKey, baseURL string) *YourProvider {
+    return &YourProvider{
+        apiKey:  apiKey,
+        baseURL: baseURL,
+        timeout: 30 * time.Second,
+    }
+}
+
+// GetName returns the provider name
+func (p *YourProvider) GetName() string {
+    return "your_provider_name"
+}
+
+// ValidateRequest validates the payment request
+func (p *YourProvider) ValidateRequest(request providers.PaymentRequest) error {
+    return nil
+}
+
+// ProcessPayment processes the payment request
+func (p *YourProvider) ProcessPayment(ctx context.Context, request providers.PaymentRequest) (interface{}, interface{}) {
+   
+    return response, nil
+}
+
+// ParseSuccessResponse converts provider response to normalized format
+func (p *YourProvider) ParseSuccessResponse(response interface{}) (*providers.PaymentResponse, error) {
+    return normalizedResponse, nil
+}
+
+// ParseErrorResponse converts provider error to normalized format
+func (p *YourProvider) ParseErrorResponse(response interface{}) (*providers.PaymentError, error) {
+    return normalizedError, nil
+}
+```
+
+### Step 4: Create Tests
+
+Create a test file `provider_test.go` in your provider directory and write all tests in it
+
+### Step 5: Register Your Provider
+
+Update the main application to include your new provider:
+
+```go
+// In main.go
+import (
+    "pgas/pkg/providers/your_provider_name"
+)
+
+func main() {
+    // Initialize payment providers
+    yourProvider := your_provider_name.GetNewYourProviderPaymentProvider()
+    
+    // Add to processor
+    paymentProcessor := processor.NewPaymentProcessor([]providers.Provider{
+        mastercardProvider, 
+        visaProvider, 
+        yourProvider, // Add your provider here
+    })
+    
+}
+```
+
+### Step 6: Update Integration Tests
+
+Add your provider to the integration tests in `pkg/processor/integration_test.go`:
+## Best Practices
+
+### 1. Validation
+- Implement comprehensive validation for all input fields
+- Check for supported currencies, valid card numbers, expiry dates, etc.
+- Return descriptive error messages
+
+### 2. Error Handling
+- Handle context cancellation
+- Implement proper error types and codes
+- Provide meaningful error messages
+
+### 3. Response Parsing
+- Ensure consistent response format
+- Handle different response structures
+- Validate response data before parsing
+
+### 4. Testing
+- Write comprehensive unit tests
+- Test both success and failure scenarios
+- Include edge cases and boundary conditions
+- Test concurrent access if applicable
+
+### 5. Configuration
+- Use environment variables for sensitive data (API keys, URLs)
+- Implement proper timeout handling
+- Add retry logic for transient failures
